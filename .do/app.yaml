@@ -1,0 +1,65 @@
+name: incident-commander
+services:
+  - name: api
+    environment_slug: python
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: your-github-user/incident-commander
+    http_port: 8080
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    run_command: uvicorn api.main:app --host 0.0.0.0 --port ${PORT}
+    source_dir: /
+    envs:
+      - key: APP_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
+      - key: REQUEST_TIMEOUT_SEC
+        scope: RUN_AND_BUILD_TIME
+        value: "60"
+      - key: DATABASE_PATH
+        scope: RUN_AND_BUILD_TIME
+        value: data/incident_commander.db
+      - key: AGENT_ENDPOINT
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: AGENT_ACCESS_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: SLACK_WEBHOOK_URL
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+workers:
+  - name: analyzer-worker
+    environment_slug: python
+    github:
+      branch: main
+      deploy_on_push: true
+      repo: your-github-user/incident-commander
+    instance_count: 1
+    instance_size_slug: basic-xxs
+    run_command: python -m worker.main
+    source_dir: /
+    envs:
+      - key: APP_ENV
+        scope: RUN_AND_BUILD_TIME
+        value: production
+      - key: REQUEST_TIMEOUT_SEC
+        scope: RUN_AND_BUILD_TIME
+        value: "60"
+      - key: DATABASE_PATH
+        scope: RUN_AND_BUILD_TIME
+        value: data/incident_commander.db
+      - key: WORKER_POLL_INTERVAL_SEC
+        scope: RUN_AND_BUILD_TIME
+        value: "2"
+      - key: AGENT_ENDPOINT
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: AGENT_ACCESS_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: SLACK_WEBHOOK_URL
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET

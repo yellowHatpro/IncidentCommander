@@ -1,0 +1,860 @@
+[
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "billing-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:01:00Z",
+      "logs": [
+        "ERROR db connection timeout",
+        "ERROR 500 /checkout",
+        "WARN retry budget exhausted"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "auth-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:02:00Z",
+      "logs": [
+        "ERROR login timeout for oauth callback",
+        "ERROR 500 /login",
+        "WARN token refresh latency spike"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "checkout-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:03:00Z",
+      "logs": [
+        "ERROR payment gateway timeout",
+        "ERROR 500 /checkout",
+        "CRITICAL cart finalization failure"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "worker-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:04:00Z",
+      "logs": [
+        "WARN backlog growth detected",
+        "ERROR job timeout on invoice generation",
+        "ERROR queue consumer reconnecting"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "deploy-pipeline",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:05:00Z",
+      "logs": [
+        "WARN release canary error rate increased",
+        "ERROR deploy rollback triggered",
+        "ERROR synthetic checkout failed after release"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "inventory-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:06:00Z",
+      "logs": [
+        "WARN cache miss ratio elevated",
+        "ERROR stock reservation timeout",
+        "ERROR postgres connection pool exhausted"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "billing-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:07:00Z",
+      "logs": [
+        "ERROR card authorization timeout",
+        "ERROR ledger write timeout",
+        "WARN reconciliation lag increasing"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "auth-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:08:00Z",
+      "logs": [
+        "ERROR session store unavailable",
+        "ERROR 500 /mfa/verify",
+        "WARN login attempts retrying"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "checkout-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:09:00Z",
+      "logs": [
+        "ERROR order placement timeout",
+        "ERROR 500 /orders",
+        "WARN downstream payment retries rising"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "worker-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:10:00Z",
+      "logs": [
+        "ERROR queue partition rebalance stalled",
+        "ERROR consumer heartbeat timeout",
+        "WARN job backlog exceeded threshold"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "deploy-pipeline",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:11:00Z",
+      "logs": [
+        "WARN canary health degraded",
+        "ERROR release verification timeout",
+        "ERROR rollback workflow started"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "inventory-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:12:00Z",
+      "logs": [
+        "ERROR reservation lock timeout",
+        "ERROR mysql deadlock detected",
+        "WARN stock sync delay increased"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "search-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:13:00Z",
+      "logs": [
+        "WARN query latency crossed SLO",
+        "ERROR elasticsearch upstream timeout",
+        "ERROR 500 /search"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "notification-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:14:00Z",
+      "logs": [
+        "ERROR smtp provider timeout",
+        "WARN email send queue backing up",
+        "ERROR push delivery retries exhausted"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "reporting-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:15:00Z",
+      "logs": [
+        "WARN analytics job lagging",
+        "ERROR warehouse connection timeout",
+        "ERROR report export failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "catalog-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:16:00Z",
+      "logs": [
+        "ERROR product cache rebuild timeout",
+        "ERROR 500 /catalog/items",
+        "WARN stale cache percentage rising"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "fraud-engine",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:17:00Z",
+      "logs": [
+        "WARN decision latency spike",
+        "ERROR rules engine timeout",
+        "ERROR fraud score service unavailable"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "admin-portal",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:18:00Z",
+      "logs": [
+        "ERROR dashboard query timeout",
+        "ERROR 500 /admin/users",
+        "WARN operator actions delayed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "shipment-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:19:00Z",
+      "logs": [
+        "WARN carrier API latency increased",
+        "ERROR label generation timeout",
+        "ERROR shipment booking failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "returns-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:20:00Z",
+      "logs": [
+        "ERROR refund ledger timeout",
+        "ERROR 500 /returns",
+        "WARN return processing queue growing"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "pricing-engine",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:21:00Z",
+      "logs": [
+        "ERROR promotion rule evaluation timeout",
+        "ERROR price calculation failed",
+        "WARN fallback pricing activated"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "recommendation-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:22:00Z",
+      "logs": [
+        "WARN model inference latency spike",
+        "ERROR vector index timeout",
+        "ERROR recommendation batch failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "session-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:23:00Z",
+      "logs": [
+        "ERROR redis timeout",
+        "ERROR session read failed",
+        "WARN cache reconnect attempts increasing"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "gateway-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:24:00Z",
+      "logs": [
+        "ERROR upstream timeout to checkout-service",
+        "ERROR upstream timeout to billing-api",
+        "WARN p95 latency above threshold"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "billing-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:25:00Z",
+      "logs": [
+        "ERROR invoice db timeout",
+        "WARN retry storm detected",
+        "ERROR billing reconciliation task failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "auth-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:26:00Z",
+      "logs": [
+        "ERROR SSO callback timeout",
+        "WARN identity provider retries rising",
+        "ERROR session bootstrap failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "checkout-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:27:00Z",
+      "logs": [
+        "ERROR checkout step timeout",
+        "ERROR cart persistence failed",
+        "WARN circuit breaker half-open"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "worker-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:28:00Z",
+      "logs": [
+        "ERROR background export timeout",
+        "WARN retry queue filling",
+        "ERROR worker pod restarted after OOM"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "deploy-pipeline",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:29:00Z",
+      "logs": [
+        "WARN progressive rollout paused",
+        "ERROR health gate timeout",
+        "ERROR rollback approval auto-triggered"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "inventory-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:30:00Z",
+      "logs": [
+        "ERROR reservation service timeout",
+        "WARN stock sync partial failure",
+        "ERROR cache invalidation lagging"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "search-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:31:00Z",
+      "logs": [
+        "ERROR search shard unavailable",
+        "WARN degraded search mode enabled",
+        "ERROR autocomplete timeout"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "notification-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:32:00Z",
+      "logs": [
+        "WARN push queue draining slowly",
+        "ERROR sms gateway timeout",
+        "ERROR webhook delivery retries exceeded"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "reporting-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:33:00Z",
+      "logs": [
+        "ERROR materialized view refresh timeout",
+        "WARN analytics backlog increasing",
+        "ERROR report generation worker failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "catalog-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:34:00Z",
+      "logs": [
+        "ERROR image metadata sync timeout",
+        "WARN product indexing lag",
+        "ERROR variant lookup failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "fraud-engine",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:35:00Z",
+      "logs": [
+        "ERROR risk profile fetch timeout",
+        "WARN model score fallback enabled",
+        "ERROR ruleset compilation failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "admin-portal",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:36:00Z",
+      "logs": [
+        "ERROR operator permissions lookup timeout",
+        "WARN stale session detected",
+        "ERROR admin bulk action failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "shipment-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:37:00Z",
+      "logs": [
+        "ERROR warehouse route timeout",
+        "WARN shipment retries climbing",
+        "ERROR carrier booking callback failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "returns-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:38:00Z",
+      "logs": [
+        "ERROR return authorization timeout",
+        "WARN refund queue lagging",
+        "ERROR exchange order creation failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "pricing-engine",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:39:00Z",
+      "logs": [
+        "ERROR discount matrix load timeout",
+        "WARN stale pricing snapshot used",
+        "ERROR repricing task aborted"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "recommendation-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:40:00Z",
+      "logs": [
+        "ERROR recommendation cache timeout",
+        "WARN inference queue saturated",
+        "ERROR embedding lookup failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "session-service",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:41:00Z",
+      "logs": [
+        "WARN reconnect attempts spiking",
+        "ERROR redis cluster failover timeout",
+        "ERROR session write failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "gateway-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T10:42:00Z",
+      "logs": [
+        "ERROR upstream timeout to auth-service",
+        "WARN elevated 5xx rate",
+        "ERROR gateway route table refresh failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "payments-worker",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:43:00Z",
+      "logs": [
+        "ERROR settlement timeout",
+        "WARN payment retry batch growing",
+        "ERROR payout reconciliation failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "support-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:44:00Z",
+      "logs": [
+        "ERROR ticket search timeout",
+        "WARN support dashboard latency high",
+        "ERROR agent assignment failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "email-renderer",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:45:00Z",
+      "logs": [
+        "ERROR template compile timeout",
+        "WARN render queue depth rising",
+        "ERROR html generation failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "billing-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:46:00Z",
+      "logs": [
+        "ERROR payment ledger lock timeout",
+        "WARN dead letter queue increasing",
+        "ERROR charge capture failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "auth-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:47:00Z",
+      "logs": [
+        "ERROR password reset token store timeout",
+        "WARN suspicious auth retries increasing",
+        "ERROR login policy fetch failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "checkout-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:48:00Z",
+      "logs": [
+        "ERROR shipping quote timeout",
+        "WARN order submit retries increasing",
+        "ERROR checkout orchestration failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "worker-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:49:00Z",
+      "logs": [
+        "ERROR batch retry timeout",
+        "WARN queue lag above threshold",
+        "ERROR worker heartbeat missed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "deploy-pipeline",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:50:00Z",
+      "logs": [
+        "ERROR deployment verification timeout",
+        "WARN auto-pause triggered",
+        "ERROR blue-green cutover failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "inventory-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:51:00Z",
+      "logs": [
+        "ERROR warehouse sync timeout",
+        "WARN reservation retries increasing",
+        "ERROR inventory write conflict"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "search-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:52:00Z",
+      "logs": [
+        "ERROR index refresh timeout",
+        "WARN search degrade mode active",
+        "ERROR suggestion service unavailable"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "notification-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:53:00Z",
+      "logs": [
+        "ERROR email provider connection timeout",
+        "WARN SMS backlog high",
+        "ERROR notification fanout failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "reporting-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:54:00Z",
+      "logs": [
+        "ERROR aggregate query timeout",
+        "WARN report queue depth above normal",
+        "ERROR BI export job failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "catalog-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:55:00Z",
+      "logs": [
+        "ERROR product feed sync timeout",
+        "WARN metadata indexing lag",
+        "ERROR category lookup failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "fraud-engine",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:56:00Z",
+      "logs": [
+        "ERROR feature store timeout",
+        "WARN review queue building",
+        "ERROR fraud evaluation pipeline failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "admin-portal",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:57:00Z",
+      "logs": [
+        "ERROR operator metrics timeout",
+        "WARN admin page render latency high",
+        "ERROR audit trail fetch failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "shipment-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:58:00Z",
+      "logs": [
+        "ERROR route planner timeout",
+        "WARN shipment sync retries increasing",
+        "ERROR dispatch booking failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "returns-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T10:59:00Z",
+      "logs": [
+        "ERROR refund settlement timeout",
+        "WARN exchange flow retries increasing",
+        "ERROR returns orchestration failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "pricing-engine",
+      "environment": "prod",
+      "timestamp": "2026-03-07T11:00:00Z",
+      "logs": [
+        "ERROR pricing publish timeout",
+        "WARN fallback catalog prices enabled",
+        "ERROR promotion refresh job failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "recommendation-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T11:01:00Z",
+      "logs": [
+        "ERROR inference service timeout",
+        "WARN request fanout delayed",
+        "ERROR ranking model refresh failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "session-service",
+      "environment": "prod",
+      "timestamp": "2026-03-07T11:02:00Z",
+      "logs": [
+        "ERROR redis command timeout",
+        "WARN session eviction rising",
+        "ERROR sticky session validation failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "gateway-api",
+      "environment": "prod",
+      "timestamp": "2026-03-07T11:03:00Z",
+      "logs": [
+        "ERROR request router timeout",
+        "WARN upstream saturation detected",
+        "ERROR edge auth call failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "payments-worker",
+      "environment": "staging",
+      "timestamp": "2026-03-07T11:04:00Z",
+      "logs": [
+        "ERROR settlement retry timeout",
+        "WARN payout queue growth detected",
+        "ERROR capture replay job failed"
+      ]
+    }
+  },
+  {
+    "mode": "queue",
+    "payload": {
+      "service": "support-api",
+      "environment": "staging",
+      "timestamp": "2026-03-07T11:05:00Z",
+      "logs": [
+        "ERROR CRM sync timeout",
+        "WARN ticket backlog growing",
+        "ERROR escalation workflow failed"
+      ]
+    }
+  },
+  {
+    "mode": "sync",
+    "payload": {
+      "service": "email-renderer",
+      "environment": "staging",
+      "timestamp": "2026-03-07T11:06:00Z",
+      "logs": [
+        "ERROR preview render timeout",
+        "WARN content fetch latency rising",
+        "ERROR template asset load failed"
+      ]
+    }
+  }
+]

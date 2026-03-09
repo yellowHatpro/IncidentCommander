@@ -1,0 +1,28 @@
+services:
+  api:
+    build:
+      context: .
+    command: uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    volumes:
+      - incident_data:/app/data
+    restart: unless-stopped
+
+  worker:
+    build:
+      context: .
+    command: uv run python -m worker.main
+    env_file:
+      - .env
+    volumes:
+      - incident_data:/app/data
+    restart: unless-stopped
+    depends_on:
+      - api
+
+volumes:
+  incident_data:
+
