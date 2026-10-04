@@ -33,6 +33,10 @@ async def worker_loop() -> None:
     while True:
         processed = await process_one_pending_event(store)
         if not processed:
+            # Idle: release claims left behind by a worker that died mid-analysis.
+            reclaimed = store.reclaim_stale_in_progress(settings.worker_stale_after_sec)
+            if reclaimed:
+                logger.warning("reclaimed %d stale in-progress event(s)", reclaimed)
             await asyncio.sleep(settings.worker_poll_interval_sec)
 
 
