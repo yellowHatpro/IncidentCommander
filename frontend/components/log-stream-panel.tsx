@@ -1,7 +1,18 @@
 "use client";
 
 import { AlertTriangle, Bug, Info, Siren, Timer } from "lucide-react";
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  Pie,
+  PieChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 import type { EventDetail } from "../lib/types";
 import { detectLogTone } from "../lib/log-insights";
 import { formatTimestamp } from "../lib/format";
