@@ -87,12 +87,20 @@ def get_notifier(settings: Settings = Depends(get_settings)) -> SlackNotifier:
 def require_api_key(
     settings: Settings = Depends(get_settings),
     x_api_key: str | None = Header(default=None, alias="X-API-Key"),
+    authorization: str | None = Header(default=None),
 ) -> None:
-    """Guard write endpoints when INGEST_API_KEY is configured."""
+    """Guard write endpoints when INGEST_API_KEY is configured.
+
+    Accepts `X-API-Key: <key>` or `Authorization: Bearer <key>` (the form
+    Alertmanager's http_config.authorization can send).
+    """
     if not settings.ingest_auth_enabled:
         return
-    if x_api_key != settings.ingest_api_key:
-        raise HTTPException(status_code=401, detail="invalid or missing X-API-Key")
+    bearer = None
+    if authorization and authorization.lower().startswith("bearer "):
+        bearer = authorization[7:].strip()
+    if settings.ingest_api_key not in (x_api_key, bearer):
+        raise HTTPException(status_code=401, detail="invalid or missing API key (X-API-Key or Authorization: Bearer)")
 
 
 # ------------------------------------------------------------------- builders

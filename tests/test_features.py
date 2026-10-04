@@ -166,6 +166,9 @@ def test_api_key_protects_write_endpoints_only(make_client):
         assert client.post("/ingest/logs", json=body, headers={"X-API-Key": "wrong"}).status_code == 401
         ok = client.post("/ingest/logs", json=body, headers={"X-API-Key": "s3cret"})
         assert ok.status_code == 200
+        bearer = client.post("/ingest/logs", json=body, headers={"Authorization": "Bearer s3cret"})
+        assert bearer.status_code == 200
+        assert client.post("/ingest/logs", json=body, headers={"Authorization": "Basic s3cret"}).status_code == 401
         incident_id = ok.json()["incident_id"]
 
         assert client.patch(f"/incidents/{incident_id}/status", json={"status": "resolved"}).status_code == 401
