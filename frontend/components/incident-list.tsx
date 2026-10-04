@@ -5,18 +5,24 @@ import { StatusBadge } from "./status-badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "./ui/table";
 
-export function IncidentList({ incidents }: { incidents: StoredIncident[] }) {
+export function IncidentList({ incidents, total }: { incidents: StoredIncident[]; total?: number }) {
   return (
     <Card>
       <CardHeader>
         <CardTitle>Incident queue</CardTitle>
-        <CardDescription>Sorted for quick scanning and escalation handoff.</CardDescription>
+        <CardDescription>
+          Newest first.
+          {total !== undefined && total > incidents.length
+            ? ` Showing ${incidents.length} of ${total}; narrow with the filters above.`
+            : ""}
+        </CardDescription>
       </CardHeader>
       <CardContent className="p-0">
         <Table>
           <TableHeader>
             <TableRow>
               <TableHead>Severity</TableHead>
+              <TableHead>Status</TableHead>
               <TableHead>Service</TableHead>
               <TableHead>Summary</TableHead>
               <TableHead>Opened</TableHead>
@@ -27,6 +33,14 @@ export function IncidentList({ incidents }: { incidents: StoredIncident[] }) {
               <TableRow key={incident.id}>
                 <TableCell>
                   <StatusBadge variant="severity" value={incident.analysis.severity} />
+                </TableCell>
+                <TableCell>
+                  <StatusBadge variant="incident" value={incident.status} />
+                  {incident.notes.length ? (
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {incident.notes.length} note{incident.notes.length === 1 ? "" : "s"}
+                    </div>
+                  ) : null}
                 </TableCell>
                 <TableCell>
                   <Link className="font-medium text-foreground hover:text-cyan-300" href={`/incidents/${incident.id}`}>
