@@ -11,9 +11,9 @@ from api.store import SQLiteStore
 logger = logging.getLogger("incident_commander.worker")
 
 
-async def process_one_pending_event() -> bool:
+async def process_one_pending_event(store: SQLiteStore | None = None) -> bool:
     settings = get_settings()
-    store = SQLiteStore(settings.database_path)
+    store = store or SQLiteStore(settings.database_path)
     client = GradientClient(settings)
     notifier = SlackNotifier(settings)
     event = store.claim_next_pending_event()
@@ -28,8 +28,10 @@ async def process_one_pending_event() -> bool:
 async def worker_loop() -> None:
     settings = get_settings()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
+    store = SQLiteStore(settings.database_path)
+    logger.info("worker started, polling %s every %.1fs", settings.database_path, settings.worker_poll_interval_sec)
     while True:
-        processed = await process_one_pending_event()
+        processed = await process_one_pending_event(store)
         if not processed:
             await asyncio.sleep(settings.worker_poll_interval_sec)
 
@@ -40,4 +42,3 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
-

@@ -1,5 +1,6 @@
 import json
 import sqlite3
+from contextlib import closing
 from pathlib import Path
 from uuid import uuid4
 
@@ -13,13 +14,15 @@ class SQLiteStore:
             self.database_path.parent.mkdir(parents=True, exist_ok=True)
         self._initialize()
 
-    def _connect(self) -> sqlite3.Connection:
+    def _connect(self) -> closing[sqlite3.Connection]:
+        # Each call opens a short-lived connection. `closing` releases the file
+        # handle on exit; the inner `with connection` block commits or rolls back.
         connection = sqlite3.connect(self.database_path)
         connection.row_factory = sqlite3.Row
-        return connection
+        return closing(connection)
 
     def _initialize(self) -> None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             connection.executescript(
                 """
                 CREATE TABLE IF NOT EXISTS events (
@@ -55,7 +58,7 @@ class SQLiteStore:
             status=status,
             last_error=None,
         )
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             connection.execute(
                 """
                 INSERT INTO events (id, service, environment, timestamp, logs_json, status, last_error)
@@ -74,14 +77,14 @@ class SQLiteStore:
         return event
 
     def update_event_status(self, event_id: str, status: str, last_error: str | None = None) -> None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             connection.execute(
                 "UPDATE events SET status = ?, last_error = ? WHERE id = ?",
                 (status, last_error, event_id),
             )
 
     def claim_next_pending_event(self) -> StoredEvent | None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             row = connection.execute(
                 """
                 SELECT id, service, environment, timestamp, logs_json, status, last_error
@@ -125,7 +128,7 @@ class SQLiteStore:
             created_at=utc_now(),
             analysis=analysis,
         )
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             connection.execute(
                 """
                 INSERT INTO incidents (id, event_id, service, environment, created_at, severity, analysis_json)
@@ -144,7 +147,7 @@ class SQLiteStore:
         return incident
 
     def list_incidents(self, limit: int = 50) -> list[StoredIncident]:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             rows = connection.execute(
                 """
                 SELECT id, event_id, service, environment, created_at, analysis_json
@@ -157,7 +160,7 @@ class SQLiteStore:
         return [self._row_to_incident(row) for row in rows]
 
     def get_incident(self, incident_id: str) -> StoredIncident | None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             row = connection.execute(
                 """
                 SELECT id, event_id, service, environment, created_at, analysis_json
@@ -169,7 +172,7 @@ class SQLiteStore:
         return self._row_to_incident(row) if row else None
 
     def get_incident_by_event_id(self, event_id: str) -> StoredIncident | None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             row = connection.execute(
                 """
                 SELECT id, event_id, service, environment, created_at, analysis_json
@@ -181,7 +184,7 @@ class SQLiteStore:
         return self._row_to_incident(row) if row else None
 
     def get_event(self, event_id: str) -> StoredEvent | None:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             row = connection.execute(
                 """
                 SELECT id, service, environment, timestamp, logs_json, status, last_error
@@ -193,7 +196,7 @@ class SQLiteStore:
         return self._row_to_event(row) if row else None
 
     def list_events(self, limit: int = 50) -> list[StoredEvent]:
-        with self._connect() as connection:
+        with self._connect() as connection, connection:
             rows = connection.execute(
                 """
                 SELECT id, service, environment, timestamp, logs_json, status, last_error
