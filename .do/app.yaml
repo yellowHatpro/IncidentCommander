@@ -3,7 +3,7 @@ services:
   - name: api
     environment_slug: python
     github:
-      branch: main
+      branch: master
       deploy_on_push: true
       repo: your-github-user/incident-commander
     http_port: 8080
@@ -34,7 +34,7 @@ workers:
   - name: analyzer-worker
     environment_slug: python
     github:
-      branch: main
+      branch: master
       deploy_on_push: true
       repo: your-github-user/incident-commander
     instance_count: 1

@@ -27,7 +27,7 @@ Open `http://127.0.0.1:8000/docs`.
 
 ## Frontend Dashboard
 
-A standalone Next.js dashboard now lives in [frontend/package.json](/home/yellowhatpro/code/HACKATHONS/IncidentCommander/frontend/package.json).
+A standalone Next.js dashboard now lives in [frontend/package.json](frontend/package.json).
 This repo is managed as a `pnpm` workspace, so install and run the frontend from the project root:
 
 ```bash
@@ -219,7 +219,7 @@ uv run python -m worker.main
 
 ## Dummy Data
 
-A reusable demo dataset is included at [data/dummy-events.json](/home/yellowhatpro/code/HACKATHONS/IncidentCommander/data/dummy-events.json).
+A reusable demo dataset is included at [data/dummy-events.json](data/dummy-events.json).
 It covers multiple services and failure patterns:
 
 - database saturation
@@ -229,4 +229,4 @@ It covers multiple services and failure patterns:
 - deploy rollback signals
 - inventory reservation failures
 
-Use [scripts/seed-data.sh](/home/yellowhatpro/code/HACKATHONS/IncidentCommander/scripts/seed-data.sh) to ingest the dataset into a running API.
+Use [scripts/seed-data.sh](scripts/seed-data.sh) to ingest the dataset into a running API.
