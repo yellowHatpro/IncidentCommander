@@ -17,6 +17,7 @@ from api.models import (
     LogEntry,
     LogIngestRequest,
     SimulationResponse,
+    is_signal_line,
 )
 from api.notifier import SlackNotifier
 from api.settings import Settings, get_settings
@@ -24,8 +25,7 @@ from api.store import SQLiteStore
 
 
 def should_trigger_analysis(logs: list[str]) -> bool:
-    interesting_levels = ("ERROR", "WARN", "CRITICAL", "500")
-    return any(level in line.upper() for line in logs for level in interesting_levels)
+    return any(is_signal_line(line) for line in logs)
 
 
 @asynccontextmanager
@@ -102,7 +102,13 @@ async def ingest_logs(
 ) -> IngestResponse:
     store: SQLiteStore = app.state.store
     triggered_analysis = should_trigger_analysis(payload.logs)
-    status = "analysis_pending" if triggered_analysis else "ignored"
+    if not triggered_analysis:
+        status = "ignored"
+    elif wait_for_analysis:
+        # Claim the event up front so a running worker cannot pick it up too.
+        status = "analysis_in_progress"
+    else:
+        status = "analysis_pending"
     event = store.add_event(payload, status=status)
 
     if triggered_analysis:
