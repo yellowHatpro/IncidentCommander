@@ -1,10 +1,33 @@
 import json
+import logging
+import re
 
 import httpx
 from pydantic import ValidationError
 
 from api.models import IncidentAnalysis
 from api.settings import Settings
+
+logger = logging.getLogger("incident_commander.gradient")
+
+# Models often wrap JSON in ```json ... ``` fences even when told not to.
+_FENCE = re.compile(r"^\s*```(?:json)?\s*(.*?)\s*```\s*$", re.DOTALL)
+
+
+def extract_json_object(content: str) -> dict:
+    match = _FENCE.match(content)
+    if match:
+        content = match.group(1)
+    parsed = json.loads(content)
+    if not isinstance(parsed, dict):
+        raise TypeError(f"expected a JSON object, got {type(parsed).__name__}")
+    return parsed
+
+
+def _has_token(text: str, *tokens: str) -> bool:
+    """True when any token appears as a whole word (case-insensitive). Tokens may be regex."""
+    pattern = r"\b(?:" + "|".join(tokens) + r")\b"
+    return re.search(pattern, text, re.IGNORECASE) is not None
 
 
 class GradientClient:
@@ -47,24 +70,32 @@ class GradientClient:
                 data = response.json()
 
             content = data["choices"][0]["message"]["content"]
-            parsed = json.loads(content)
+            parsed = extract_json_object(content)
             parsed["source"] = "gradient"
             return IncidentAnalysis.model_validate(parsed)
-        except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError):
+        except (httpx.HTTPError, KeyError, IndexError, TypeError, json.JSONDecodeError, ValidationError) as exc:
+            logger.warning(
+                "gradient analysis failed for %s/%s (%s: %s); using fallback analyzer",
+                service,
+                environment,
+                type(exc).__name__,
+                exc,
+            )
             return self._fallback_analysis(service, environment, logs)
 
     def _fallback_analysis(self, service: str, environment: str, logs: list[str]) -> IncidentAnalysis:
         joined = "\n".join(logs).lower()
-        error_count = sum("error" in line.lower() for line in logs)
-        timeout_signal = any(token in joined for token in ["timeout", "timed out", "latency"])
-        db_signal = any(token in joined for token in ["db", "database", "postgres", "mysql"])
-        deploy_signal = any(token in joined for token in ["deploy", "release", "rollback"])
+        error_count = sum(1 for line in logs if _has_token(line, "error", "err", "fatal", "panic", "exception"))
+        timeout_signal = _has_token(joined, "timeout", "timed out", "latency", "deadline exceeded")
+        db_signal = _has_token(joined, "db", "database", "postgres", "mysql", "sqlite", "redis", "connection pool")
+        deploy_signal = _has_token(joined, "deploy", "release", "rollback", "migration")
+        status_5xx = _has_token(joined, r"5\d\d")
 
-        if error_count >= 3 or ("500" in joined and timeout_signal):
+        if error_count >= 3 or (status_5xx and timeout_signal):
             severity = "P1"
-        elif error_count >= 2 or "critical" in joined:
+        elif error_count >= 2 or _has_token(joined, "critical", "crit", "fatal", "panic"):
             severity = "P2"
-        elif error_count >= 1 or "warn" in joined:
+        elif error_count >= 1 or _has_token(joined, "warn", "warning"):
             severity = "P3"
         else:
             severity = "P4"
