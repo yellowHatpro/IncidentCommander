@@ -1,22 +1,47 @@
 import Link from "next/link";
 import { ArrowRight, ShieldAlert, Sparkles, Waves } from "lucide-react";
+import { AutoRefresh } from "../components/auto-refresh";
 import { DashboardShell } from "../components/dashboard-shell";
 import { EmptyState } from "../components/empty-state";
 import { ErrorPanel } from "../components/error-panel";
 import { EventList } from "../components/event-list";
+import { FilterBar } from "../components/filter-bar";
 import { IncidentList } from "../components/incident-list";
+import { IncidentTrend } from "../components/incident-trend";
 import { MetricCard } from "../components/metric-card";
 import { OverviewCharts } from "../components/overview-charts";
 import { fetchDashboardData } from "../lib/api";
-import { formatRelativeTime, formatTimestamp, severityWeight } from "../lib/format";
+import { formatRelativeTime, formatTimestamp } from "../lib/format";
 import { buildPressureSeries, buildSeverityChart } from "../lib/log-insights";
+import type { IncidentFilters, IncidentStatus, Severity } from "../lib/types";
 import { Badge } from "../components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card";
 
 export const dynamic = "force-dynamic";
 
-export default async function HomePage() {
-  const result = await fetchDashboardData();
+type SearchParams = Record<string, string | string[] | undefined>;
+
+const severities = new Set<string>(["P1", "P2", "P3", "P4"]);
+const statuses = new Set<string>(["open", "acknowledged", "resolved"]);
+
+function first(value: string | string[] | undefined) {
+  return Array.isArray(value) ? value[0] : value;
+}
+
+function parseFilters(params: SearchParams): IncidentFilters {
+  const severity = first(params.severity);
+  const status = first(params.status);
+  return {
+    service: first(params.service) || undefined,
+    environment: first(params.environment) || undefined,
+    severity: severity && severities.has(severity) ? (severity as Severity) : undefined,
+    status: status && statuses.has(status) ? (status as IncidentStatus) : undefined,
+  };
+}
+
+export default async function HomePage({ searchParams }: { searchParams: Promise<SearchParams> }) {
+  const filters = parseFilters(await searchParams);
+  const result = await fetchDashboardData(filters);
 
   if (!result.ok) {
     return (
@@ -30,21 +55,16 @@ export default async function HomePage() {
     );
   }
 
-  const { health, incidents, events } = result.data;
-  const activeSevere = incidents.filter((incident) =>
-    ["P1", "P2"].includes(incident.analysis.severity),
+  const { health, incidents, incidentsTotal, events, metrics } = result.data;
+  const openSevere = incidents.filter(
+    (incident) => incident.status !== "resolved" && ["P1", "P2"].includes(incident.analysis.severity),
   );
-  const pendingEvents = events.filter((event) =>
-    ["analysis_pending", "analysis_in_progress"].includes(event.status),
-  );
-  const impactedServices = new Set(
-    incidents
-      .filter((incident) => severityWeight(incident.analysis.severity) <= severityWeight("P3"))
-      .map((incident) => incident.service),
-  );
-  const latestIncident = incidents[0];
+  const pendingEvents = health.queue_depth + health.in_progress;
+  const latestIncident = incidents.find((incident) => incident.status !== "resolved") ?? incidents[0];
   const severityChart = buildSeverityChart(incidents);
   const pressureChart = buildPressureSeries(events);
+  const services = Array.from(new Set(metrics.top_services.map((item) => item.service))).sort();
+  const environments = Array.from(new Set(metrics.top_services.map((item) => item.environment))).sort();
 
   return (
     <DashboardShell
@@ -52,6 +72,7 @@ export default async function HomePage() {
       title="Incident visibility built for triage, not just API demos."
       description="Monitor the backlog, inspect live incident summaries, and jump straight from service-level signals into detailed analysis and raw logs."
       statusLabel={health.gradient_enabled ? "Gradient live" : "Fallback analyzer"}
+      toolbar={<AutoRefresh intervalSec={30} />}
     >
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card className="overflow-hidden">
@@ -59,15 +80,14 @@ export default async function HomePage() {
             <div className="flex flex-wrap items-center gap-3">
               <Badge variant="info">Command Brief</Badge>
               <Badge variant="outline">Env {health.environment}</Badge>
+              {!health.database_ok ? <Badge variant="danger">Database unreachable</Badge> : null}
             </div>
             <CardTitle className="max-w-3xl text-4xl">
-              {latestIncident
-                ? latestIncident.analysis.summary
-                : "No incidents detected yet."}
+              {latestIncident ? latestIncident.analysis.summary : "No incidents detected yet."}
             </CardTitle>
             <CardDescription className="max-w-2xl text-base">
               {latestIncident
-                ? `Most recent incident from ${latestIncident.service} in ${latestIncident.environment} was created ${formatRelativeTime(latestIncident.created_at)}.`
+                ? `Most recent ${latestIncident.status} incident from ${latestIncident.service} in ${latestIncident.environment} was created ${formatRelativeTime(latestIncident.created_at)}.`
                 : "Once events are ingested and analysis runs, the highest-signal incident will surface here."}
             </CardDescription>
           </CardHeader>
@@ -92,6 +112,8 @@ export default async function HomePage() {
               <span className="inline-flex items-center gap-2">
                 <Sparkles className="h-4 w-4 text-cyan-300" />
                 Analyzer: {health.gradient_enabled ? "Gradient" : "Fallback"}
+                {health.slack_enabled ? " · Slack on" : ""}
+                {health.ingest_auth_enabled ? " · API key required" : ""}
               </span>
               <span className="inline-flex items-center gap-2">
                 <Waves className="h-4 w-4 text-cyan-300" />
@@ -102,20 +124,16 @@ export default async function HomePage() {
         </Card>
 
         <div className="grid gap-4 sm:grid-cols-2">
-          <MetricCard label="Incidents" value={incidents.length.toString()} tone="neutral" />
-          <MetricCard label="P1 / P2" value={activeSevere.length.toString()} tone="critical" />
-          <MetricCard
-            label="Pending analysis"
-            value={pendingEvents.length.toString()}
-            tone="warning"
-          />
-          <MetricCard
-            label="Services hit"
-            value={impactedServices.size.toString()}
-            tone="positive"
-          />
+          <MetricCard label="Open incidents" value={metrics.incidents_by_status.open.toString()} tone="neutral" />
+          <MetricCard label="Open P1 / P2" value={openSevere.length.toString()} tone="critical" />
+          <MetricCard label="Queue depth" value={pendingEvents.toString()} tone="warning" />
+          <MetricCard label="Resolved" value={metrics.incidents_by_status.resolved.toString()} tone="positive" />
         </div>
       </section>
+
+      <FilterBar filters={filters} services={services} environments={environments} total={incidentsTotal} />
+
+      {metrics.incidents_total ? <IncidentTrend metrics={metrics} /> : null}
 
       {incidents.length || events.length ? (
         <OverviewCharts pressureData={pressureChart} severityData={severityChart} />
@@ -124,11 +142,11 @@ export default async function HomePage() {
       <section className="grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
         <div className="space-y-6">
           {incidents.length ? (
-            <IncidentList incidents={incidents} />
+            <IncidentList incidents={incidents} total={incidentsTotal} />
           ) : (
             <EmptyState
-              title="No incident records yet"
-              description="Send warning or error logs to `/ingest/logs` and the analyzed incident timeline will appear here."
+              title={Object.values(filters).some(Boolean) ? "No incidents match these filters" : "No incident records yet"}
+              description="Send warning or error logs to `/ingest/logs` (or an Alertmanager webhook to `/ingest/alertmanager`) and the analyzed incident timeline will appear here."
             />
           )}
         </div>
@@ -138,29 +156,34 @@ export default async function HomePage() {
             <CardHeader>
               <div className="flex items-center gap-2 text-rose-300">
                 <ShieldAlert className="h-4 w-4" />
-                <p className="text-xs font-semibold uppercase tracking-[0.22em]">
-                  Watchlist
-                </p>
+                <p className="text-xs font-semibold uppercase tracking-[0.22em]">Watchlist</p>
               </div>
               <CardTitle className="text-2xl">Where to look next</CardTitle>
-              <CardDescription>
-                Fast context for the operator opening this dashboard cold.
-              </CardDescription>
+              <CardDescription>Fast context for the operator opening this dashboard cold.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4 text-sm leading-7 text-muted-foreground">
               <p>
-                The queue was last updated{" "}
-                {incidents.length ? formatTimestamp(incidents[0].created_at) : "recently"}.
+                The queue was last updated {incidents.length ? formatTimestamp(incidents[0].created_at) : "recently"}.
               </p>
               <p>
-                {pendingEvents.length} events are still waiting on or undergoing analysis, so the
-                highest-value next click is usually the newest pending stream.
+                {pendingEvents} event{pendingEvents === 1 ? " is" : "s are"} still waiting on or undergoing analysis,
+                so the highest-value next click is usually the newest pending stream.
               </p>
+              {metrics.top_services.length ? (
+                <ul className="space-y-1">
+                  {metrics.top_services.slice(0, 3).map((item) => (
+                    <li key={`${item.service}-${item.environment}`} className="flex justify-between gap-3">
+                      <Link className="text-cyan-300" href={`/?service=${encodeURIComponent(item.service)}`}>
+                        {item.service}
+                        <span className="text-muted-foreground"> · {item.environment}</span>
+                      </Link>
+                      <span>{item.count}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
               {events[0] ? (
-                <Link
-                  className="inline-flex items-center gap-2 font-medium text-cyan-300"
-                  href={`/events/${events[0].id}`}
-                >
+                <Link className="inline-flex items-center gap-2 font-medium text-cyan-300" href={`/events/${events[0].id}`}>
                   Open latest event stream
                   <ArrowRight className="h-4 w-4" />
                 </Link>
