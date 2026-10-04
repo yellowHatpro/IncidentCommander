@@ -4,17 +4,31 @@ Hackathon MVP for ingesting operational signals, analyzing incidents with a Digi
 
 ## Features
 
-- `POST /ingest/logs` accepts batched warning and error logs
+Ingestion and analysis:
+
+- `POST /ingest/logs` accepts batched warning and error logs (`?wait_for_analysis=false` to queue)
+- `POST /ingest/alertmanager` accepts a Prometheus Alertmanager webhook; firing alerts are grouped by `service`/`environment` labels and queued
 - `POST /analyze` manually analyzes a payload
 - `POST /simulate` returns a demo incident analysis
-- `GET /events` returns persisted event history
-- `GET /incidents` and `GET /incidents/{id}` expose incident history
-- `GET /dashboard` renders a lightweight incident console
-- `GET /health` confirms the service is up
-- SQLite persistence stores events and incidents across restarts
-- Optional Slack webhook delivery sends the generated incident update
-- Separate worker entrypoint processes queued analysis jobs
-- Gradient integration uses env vars and falls back to a deterministic local analyzer when not configured
+- Gradient integration uses env vars and falls back to a deterministic local analyzer when not configured; fallback reasons are logged
+- Separate worker entrypoint processes queued analysis jobs and reclaims claims left behind by a crashed worker
+
+Incident lifecycle:
+
+- `GET /incidents` and `GET /events` support `limit`, `offset` and `service` / `environment` / `severity` / `status` filters and return `total`
+- `GET /incidents/{id}` includes `related_incidents` (same service and environment within 24h)
+- `PATCH /incidents/{id}/status` moves an incident between `open`, `acknowledged` and `resolved`
+- `POST /incidents/{id}/notes` appends a timestamped operator note
+- `GET /incidents/{id}/postmortem.md` downloads a Markdown postmortem with timeline, action checklist and evidence
+- `GET /metrics/summary` returns counts by severity, status and service, mean time to resolve and an hourly series
+- `GET /health` reports database reachability, queue depth and which integrations are enabled
+
+Operations:
+
+- SQLite persistence stores events and incidents across restarts; schema upgrades are applied automatically
+- Optional Slack webhook delivery sends the generated incident update (best-effort; a Slack failure never fails the analysis)
+- Optional `INGEST_API_KEY` protects every write endpoint with an `X-API-Key` header; reads stay open for dashboards
+- `GET /dashboard` renders a lightweight server-side HTML console; the Next.js frontend adds filters, lifecycle actions, notes and charts
 
 ## Local Run
 
@@ -49,15 +63,45 @@ Override it with `API_BASE_URL` or `NEXT_PUBLIC_API_BASE_URL` if your backend ru
 
 Copy `.env.example` to `.env` and set:
 
-- `AGENT_ENDPOINT`
-- `AGENT_ACCESS_KEY`
-- `REQUEST_TIMEOUT_SEC`
-- `APP_ENV`
-- `DATABASE_PATH`
-- `WORKER_POLL_INTERVAL_SEC`
-- `SLACK_WEBHOOK_URL`
+| Variable | Default | Purpose |
+|---|---|---|
+| `AGENT_ENDPOINT`, `AGENT_ACCESS_KEY` | unset | DigitalOcean Gradient agent. When unset the built-in heuristic analyzer is used. |
+| `REQUEST_TIMEOUT_SEC` | `60` | Timeout for Gradient and Slack HTTP calls. |
+| `APP_ENV` | `development` | Reported by `/health`. |
+| `DATABASE_PATH` | `data/incident_commander.db` | SQLite file; parent directories are created. |
+| `WORKER_POLL_INTERVAL_SEC` | `2` | Worker idle sleep between polls. |
+| `WORKER_STALE_AFTER_SEC` | `300` | Claims older than this are returned to the queue. |
+| `SLACK_WEBHOOK_URL` | unset | Incoming webhook for incident updates. |
+| `INGEST_API_KEY` | unset | When set, write endpoints require `X-API-Key: <key>` or `Authorization: Bearer <key>`. The Next.js frontend reads the same variable to sign its requests. |
+| `CORS_ORIGINS` | `http://127.0.0.1:3000,http://localhost:3000` | Browser origins allowed to call the API directly. |
 
 If the Gradient values are omitted, the app still runs using the built-in demo analyzer.
+
+### Alertmanager
+
+Point an Alertmanager receiver at the API:
+
+```yaml
+receivers:
+  - name: incident-commander
+    webhook_configs:
+      - url: http://incident-commander:8000/ingest/alertmanager
+        http_config:
+          authorization:
+            credentials: <INGEST_API_KEY>   # sent as "Authorization: Bearer", accepted alongside X-API-Key
+```
+
+Omit `http_config` when `INGEST_API_KEY` is not set. Alerts map to log lines as `<SEVERITY> <alertname>: <summary|description>` and are grouped by the `service` (or `job`/`app`) and `environment` (or `env`/`namespace`) labels.
+
+### Incident lifecycle from the CLI
+
+```bash
+curl -X PATCH http://127.0.0.1:8000/incidents/<id>/status -H 'Content-Type: application/json' -d '{"status":"acknowledged"}'
+curl -X POST  http://127.0.0.1:8000/incidents/<id>/notes  -H 'Content-Type: application/json' -d '{"author":"ashu","text":"Rolled back 2026.10.04-3"}'
+curl -o postmortem.md http://127.0.0.1:8000/incidents/<id>/postmortem.md
+curl 'http://127.0.0.1:8000/incidents?severity=P1&status=open&limit=10'
+curl 'http://127.0.0.1:8000/metrics/summary?window_hours=48'
+```
 
 ## Deployment
 
@@ -149,12 +193,20 @@ Implemented from the plan:
 - basic dashboard
 - DigitalOcean deployment metadata
 
+Added after the hackathon (see `CHANGELOG.md`):
+
+- incident lifecycle (status, notes, related incidents, postmortem export)
+- filters, pagination and a metrics summary
+- Alertmanager webhook ingestion
+- API-key protection for writes and CORS configuration
+- stale-claim recovery in the worker and automatic schema upgrades
+- Next.js frontend: filters, lifecycle actions, notes, trend chart, auto-refresh
+
 Still optional future work:
 
-- separate long-running worker service
-- richer auth and multi-tenant controls
+- multi-tenant controls and per-user auth
 - external database instead of SQLite
-- richer frontend dashboard
+- incident grouping (attach repeat events to an open incident instead of opening a new one)
 
 ## API Shape
 

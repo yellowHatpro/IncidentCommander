@@ -30,6 +30,12 @@ services:
       - key: SLACK_WEBHOOK_URL
         scope: RUN_AND_BUILD_TIME
         type: SECRET
+      - key: INGEST_API_KEY
+        scope: RUN_AND_BUILD_TIME
+        type: SECRET
+      - key: CORS_ORIGINS
+        scope: RUN_AND_BUILD_TIME
+        value: https://your-frontend.example.com
 workers:
   - name: analyzer-worker
     environment_slug: python
@@ -54,6 +60,9 @@ workers:
       - key: WORKER_POLL_INTERVAL_SEC
         scope: RUN_AND_BUILD_TIME
         value: "2"
+      - key: WORKER_STALE_AFTER_SEC
+        scope: RUN_AND_BUILD_TIME
+        value: "300"
       - key: AGENT_ENDPOINT
         scope: RUN_AND_BUILD_TIME
         type: SECRET
