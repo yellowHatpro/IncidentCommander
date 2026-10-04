@@ -1,10 +1,15 @@
 import type { Severity } from "./types";
 
 export function formatTimestamp(value: string) {
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-  }).format(new Date(value));
+  // Fixed UTC so server-rendered and client-rendered markup agree (no hydration mismatch)
+  // and operators in different time zones read the same clock.
+  return (
+    new Intl.DateTimeFormat("en-US", {
+      dateStyle: "medium",
+      timeStyle: "short",
+      timeZone: "UTC",
+    }).format(new Date(value)) + " UTC"
+  );
 }
 
 export function formatRelativeTime(value: string) {
