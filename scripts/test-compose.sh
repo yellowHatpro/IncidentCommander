@@ -4,7 +4,7 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
+BASE_URL="${BASE_URL:-http://127.0.0.1:${API_PORT:-8000}}"
 KEEP_UP="${KEEP_UP:-0}"
 DATASET_PATH="${DATASET_PATH:-${ROOT_DIR}/data/dummy-events.json}"
 

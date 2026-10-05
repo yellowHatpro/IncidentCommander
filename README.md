@@ -9,7 +9,7 @@ Ingestion and analysis:
 - `POST /ingest/logs` accepts batched warning and error logs (`?wait_for_analysis=false` to queue)
 - `POST /ingest/alertmanager` accepts a Prometheus Alertmanager webhook; firing alerts are grouped by `service`/`environment` labels and queued
 - `POST /analyze` manually analyzes a payload
-- `POST /simulate` returns a demo incident analysis
+- `POST /simulate` returns a demo incident analysis; `POST /demo/seed` ingests demo events so a fresh install has data
 - Gradient integration uses env vars and falls back to a deterministic local analyzer when not configured; fallback reasons are logged
 - Separate worker entrypoint processes queued analysis jobs and reclaims claims left behind by a crashed worker
 
@@ -30,44 +30,72 @@ Operations:
 - Optional `INGEST_API_KEY` protects every write endpoint with an `X-API-Key` header; reads stay open for dashboards
 - `GET /dashboard` renders a lightweight server-side HTML console; the Next.js frontend adds filters, lifecycle actions, notes and charts
 
-## Local Run
+## Quick Start
+
+One command starts the API, the worker and the frontend. It creates `.env` from
+`.env.example` when the file is missing; every value in that file is optional.
+
+```bash
+./scripts/dev.sh
+```
+
+It prints the three URLs. Open the frontend URL; on an empty database the page offers a
+**Load demo incidents** button.
+
+Prerequisites: [uv](https://docs.astral.sh/uv/) and [pnpm](https://pnpm.io/) (`corepack enable`).
+
+## Local Run (by hand)
 
 ```bash
 uv sync
-uv run uvicorn api.main:app --reload
+uv run python -m api            # API; add --reload while developing
+uv run python -m worker         # optional: processes queued events
+pnpm install && pnpm dev        # frontend
 ```
 
-Open `http://127.0.0.1:8000/docs`.
+`python -m api` listens on `PORT` (default 8000). **If that port is taken it moves to the
+next free port**, prints the URL and writes it to `data/api-url`; the frontend reads that
+file, so nothing else needs changing. Set `PORT_STRICT=1` (or pass `--strict-port`) to fail
+instead, which is what the Docker image and the App Platform spec do.
+
+Plain uvicorn still works when you want it: `uv run uvicorn api.main:app --reload`.
+
+Open `<api url>/docs` for the OpenAPI UI and `<api url>/dashboard` for the server-rendered console.
 
 ## Frontend Dashboard
 
-A standalone Next.js dashboard now lives in [frontend/package.json](frontend/package.json).
-This repo is managed as a `pnpm` workspace, so install and run the frontend from the project root:
+A Next.js dashboard lives in [frontend/package.json](frontend/package.json). The repo is a
+`pnpm` workspace; run it from the project root (`pnpm dev`, or `pnpm build && pnpm start`).
 
-```bash
-pnpm install
-pnpm dev
-```
+How the frontend finds the API, in order:
 
-Production commands:
+1. `API_BASE_URL` (or `NEXT_PUBLIC_API_BASE_URL`) from the environment or the root `.env`
+2. `data/api-url`, written by `python -m api`
+3. `http://127.0.0.1:8000`
 
-```bash
-pnpm build
-pnpm start
-```
+When the API does not answer, the frontend shows a setup page with the URL it tried, where
+that URL came from, and the commands to start the backend. When the API is healthy but
+empty, it shows a getting-started card. Configuration the backend found unusable
+(placeholder values) is listed in an amber banner.
 
-By default the app reads the API from `http://127.0.0.1:8000`.
-Override it with `API_BASE_URL` or `NEXT_PUBLIC_API_BASE_URL` if your backend runs elsewhere.
+The frontend reads `API_BASE_URL`, `NEXT_PUBLIC_API_BASE_URL` and `INGEST_API_KEY` from the
+repository-level `.env`, so one file configures all three processes.
 
 ## Environment
 
-Copy `.env.example` to `.env` and set:
+Copy `.env.example` to `.env`. **The copy works unchanged**: empty values and template
+placeholders such as `replace-me` or `https://your-agent-id...` are treated as "not
+configured" and reported in the startup log and in `GET /health` (`analyzer_reason`,
+`config_warnings`). Relative `DATABASE_PATH` values resolve against the repository root.
 
 | Variable | Default | Purpose |
 |---|---|---|
 | `AGENT_ENDPOINT`, `AGENT_ACCESS_KEY` | unset | DigitalOcean Gradient agent. When unset the built-in heuristic analyzer is used. |
 | `REQUEST_TIMEOUT_SEC` | `60` | Timeout for Gradient and Slack HTTP calls. |
-| `APP_ENV` | `development` | Reported by `/health`. |
+| `APP_ENV` | `development` | Reported by `/health`. In development any `localhost` origin passes CORS. |
+| `HOST`, `PORT` | `127.0.0.1`, `8000` | Bind address and preferred port for `python -m api`. |
+| `PORT_STRICT` | `0` | `1` fails when `PORT` is busy instead of moving to the next free port. |
+| `API_BASE_URL` | unset | Frontend only: where the Next.js server finds the API. Falls back to `data/api-url`, then `http://127.0.0.1:8000`. |
 | `DATABASE_PATH` | `data/incident_commander.db` | SQLite file; parent directories are created. |
 | `WORKER_POLL_INTERVAL_SEC` | `2` | Worker idle sleep between polls. |
 | `WORKER_STALE_AFTER_SEC` | `300` | Claims older than this are returned to the queue. |
@@ -107,18 +135,29 @@ curl 'http://127.0.0.1:8000/metrics/summary?window_hours=48'
 
 This repo is structured for DigitalOcean App Platform:
 
-- Run command: `uvicorn api.main:app --host 0.0.0.0 --port $PORT`
+- Run command: `python -m api --host 0.0.0.0 --strict-port` (reads `PORT`)
 - Set the env vars from `.env.example`
 - An App Platform spec is included at `.do/app.yaml`
-- Worker entrypoint: `python -m worker.main`
+- Worker entrypoint: `python -m worker`
 
 ## Commands
 
 ```bash
 uv sync
 uv run pytest
-uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+uv run python -m api --host 0.0.0.0 --port 8000
 ```
+
+## Troubleshooting
+
+| Symptom | What to do |
+|---|---|
+| `port 8000 is in use` in the API log | Nothing: the API moved to the next free port and printed it. `lsof -nP -iTCP:8000 -sTCP:LISTEN` shows the other process. |
+| Frontend shows "The API is not answering yet" | Start the API (`uv run python -m api`). The page names the URL it tried and where it came from; a stale `data/api-url` from a crashed run is replaced on the next start. |
+| Frontend talks to the wrong backend | Set `API_BASE_URL` in `.env` and restart `pnpm dev`. |
+| `error: cannot open the SQLite database at ...` | `DATABASE_PATH` points at a directory or an unwritable location. |
+| `/health` lists `config_warnings` | A value in `.env` is still a placeholder. Fix it or leave it empty, then restart the API. |
+| Incidents stay `analysis_pending` | They were queued (`?wait_for_analysis=false`) and no worker is running: `uv run python -m worker`. |
 
 ## Smoke Tests
 
@@ -134,7 +173,8 @@ Docker Compose smoke test:
 ./scripts/test-compose.sh
 ```
 
-Seed demo incidents into a running stack:
+Seed demo incidents into a running stack (or click **Load demo incidents** in the frontend,
+which calls `POST /demo/seed`):
 
 ```bash
 ./scripts/seed-data.sh
@@ -266,7 +306,7 @@ curl -X POST "http://127.0.0.1:8000/ingest/logs?wait_for_analysis=false" \
 Then run the worker:
 
 ```bash
-uv run python -m worker.main
+uv run python -m worker
 ```
 
 ## Dummy Data

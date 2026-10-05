@@ -5,7 +5,8 @@ ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
 MODE="${1:-local}"
-BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
+# Unset by default: filled from data/api-url once the API reports the port it bound.
+BASE_URL="${BASE_URL:-}"
 DATASET_PATH="${DATASET_PATH:-${ROOT_DIR}/data/dummy-events.json}"
 TEST_DB_PATH="${TEST_DB_PATH:-${ROOT_DIR}/data/demo-flow.db}"
 API_LOG="${ROOT_DIR}/data/demo-api.log"
@@ -26,7 +27,10 @@ json_eval() {
 
 wait_for_health() {
   local attempt=0
-  until curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; do
+  until [[ -n "${BASE_URL}" ]] && curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; do
+    if [[ -z "${BASE_URL}" && -f "${ROOT_DIR}/data/api-url" ]]; then
+      BASE_URL="$(tr -d '[:space:]' < "${ROOT_DIR}/data/api-url")"
+    fi
     attempt=$((attempt + 1))
     if [[ "${attempt}" -ge 45 ]]; then
       echo "Service did not become healthy in time" >&2
@@ -62,9 +66,9 @@ trap cleanup EXIT
 start_local() {
   rm -f "${TEST_DB_PATH}" "${API_LOG}" "${WORKER_LOG}"
   uv sync --group dev >/dev/null
-  DATABASE_PATH="${TEST_DB_PATH}" uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 >"${API_LOG}" 2>&1 &
+  DATABASE_PATH="${TEST_DB_PATH}" uv run python -m api --host 127.0.0.1 >"${API_LOG}" 2>&1 &
   API_PID="$!"
-  DATABASE_PATH="${TEST_DB_PATH}" uv run python -m worker.main >"${WORKER_LOG}" 2>&1 &
+  DATABASE_PATH="${TEST_DB_PATH}" uv run python -m worker >"${WORKER_LOG}" 2>&1 &
   WORKER_PID="$!"
   (
     tail -n 0 -F "${API_LOG}" | sed 's/^/[api] /' &
@@ -75,6 +79,7 @@ start_local() {
 }
 
 start_compose() {
+  BASE_URL="${BASE_URL:-http://127.0.0.1:${API_PORT:-8000}}"
   docker compose up --build -d
   docker compose logs -f api worker &
   COMPOSE_LOG_PID="$!"

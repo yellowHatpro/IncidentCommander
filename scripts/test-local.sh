@@ -4,7 +4,8 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "${ROOT_DIR}"
 
-BASE_URL="${BASE_URL:-http://127.0.0.1:8000}"
+# Unset by default: filled from data/api-url once the API reports the port it bound.
+BASE_URL="${BASE_URL:-}"
 TEST_DB_PATH="${TEST_DB_PATH:-${ROOT_DIR}/data/local-smoke.db}"
 DATASET_PATH="${DATASET_PATH:-${ROOT_DIR}/data/dummy-events.json}"
 API_LOG="${ROOT_DIR}/data/local-api.log"
@@ -27,7 +28,10 @@ trap cleanup EXIT
 
 wait_for_health() {
   local attempt=0
-  until curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; do
+  until [[ -n "${BASE_URL}" ]] && curl -fsS "${BASE_URL}/health" >/dev/null 2>&1; do
+    if [[ -z "${BASE_URL}" && -f "${ROOT_DIR}/data/api-url" ]]; then
+      BASE_URL="$(tr -d '[:space:]' < "${ROOT_DIR}/data/api-url")"
+    fi
     attempt=$((attempt + 1))
     if [[ "${attempt}" -ge 30 ]]; then
       echo "API did not become healthy in time" >&2
@@ -58,11 +62,11 @@ echo "Syncing dependencies with uv"
 uv sync --group dev >/dev/null
 
 echo "Starting API"
-DATABASE_PATH="${TEST_DB_PATH}" uv run uvicorn api.main:app --host 127.0.0.1 --port 8000 >"${API_LOG}" 2>&1 &
+DATABASE_PATH="${TEST_DB_PATH}" uv run python -m api --host 127.0.0.1 >"${API_LOG}" 2>&1 &
 API_PID="$!"
 
 echo "Starting worker"
-DATABASE_PATH="${TEST_DB_PATH}" uv run python -m worker.main >"${WORKER_LOG}" 2>&1 &
+DATABASE_PATH="${TEST_DB_PATH}" uv run python -m worker >"${WORKER_LOG}" 2>&1 &
 WORKER_PID="$!"
 
 wait_for_health

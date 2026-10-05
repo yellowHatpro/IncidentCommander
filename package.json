@@ -4,6 +4,7 @@
   "packageManager": "pnpm@10.28.2",
   "scripts": {
     "dev": "pnpm --filter incident-commander-frontend dev",
+    "dev:all": "./scripts/dev.sh",
     "build": "pnpm --filter incident-commander-frontend build",
     "start": "pnpm --filter incident-commander-frontend start",
     "typecheck": "pnpm --filter incident-commander-frontend typecheck"

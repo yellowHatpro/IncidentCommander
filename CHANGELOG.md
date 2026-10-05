@@ -3,6 +3,40 @@
 All notable changes to Incident Commander. Format follows
 [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versions follow SemVer.
 
+## [0.3.0] - 2026-10-05
+
+### Added
+
+- `python -m api` runner: listens on `PORT`, moves to the next free port when it is busy,
+  prints the URL and writes it to `data/api-url`. `--strict-port` / `PORT_STRICT=1` keep
+  the fail-fast behaviour (used by Docker, Compose and the App Platform spec).
+- `scripts/dev.sh`: starts API, worker and frontend together, creates `.env` from
+  `.env.example` when missing, wires the frontend to the port the API actually bound.
+- `POST /demo/seed`: ingests the demo dataset inline (no worker needed).
+- `GET /health` adds `version`, `analyzer`, `analyzer_reason`, `events_total` and
+  `config_warnings`.
+- Frontend onboarding: setup page when the API is unreachable (URL tried, its source,
+  start commands, retry), getting-started card with a **Load demo incidents** button on an
+  empty database, configuration banner for placeholder values.
+- Frontend reads `API_BASE_URL`, `NEXT_PUBLIC_API_BASE_URL` and `INGEST_API_KEY` from the
+  repository-level `.env`, and discovers the API through `data/api-url`.
+- `HOST` setting; `python -m worker` entry point.
+
+### Fixed
+
+- A `.env` copied unchanged from `.env.example` enabled the Gradient client with
+  placeholder values and sent every analysis to a bogus host first. Empty and placeholder
+  values are now "not configured"; the reason is logged and exposed in `/health`.
+- Relative `DATABASE_PATH` resolved against the current directory, so the API and the
+  worker could use different files. It now resolves against the repository root.
+- An unusable `DATABASE_PATH` produced a raw traceback; the API and worker now exit with
+  one plain error line.
+- The worker crashed on `database is locked`; it now retries on the next poll.
+- In development, CORS rejected the frontend once Next.js moved off port 3000.
+- Frontend requests had no timeout and the full database path was shown in the hero.
+- `.env.example` shipped placeholder Gradient values; optional values are now empty with
+  format hints.
+
 ## [0.2.0] - 2026-10-04
 
 ### Added
