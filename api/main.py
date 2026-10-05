@@ -1,4 +1,6 @@
+import json
 import logging
+import os
 from contextlib import asynccontextmanager
 from datetime import timedelta
 
@@ -13,6 +15,7 @@ from api.models import (
     AlertmanagerIngestResponse,
     AlertmanagerWebhook,
     AnalyzeRequest,
+    DemoSeedResponse,
     EventDetailResponse,
     EventListResponse,
     EventStatus,
@@ -37,10 +40,13 @@ from api.models import (
 )
 from api.notifier import SlackNotifier
 from api.postmortem import render_postmortem_markdown
-from api.settings import Settings, get_settings
-from api.store import SQLiteStore
+from api.settings import PROJECT_ROOT, Settings, get_settings
+from api.store import SQLiteStore, StoreUnavailableError
 
 logger = logging.getLogger("incident_commander.api")
+
+API_VERSION = "0.3.0"
+DEMO_DATASET = PROJECT_ROOT / "data" / "dummy-events.json"
 
 
 def should_trigger_analysis(logs: list[str]) -> bool:
@@ -50,23 +56,33 @@ def should_trigger_analysis(logs: list[str]) -> bool:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     settings = get_settings()
-    app.state.store = SQLiteStore(settings.database_path)
+    if not os.environ.get("INCIDENT_COMMANDER_SUMMARY_PRINTED"):
+        for line in settings.summary_lines():
+            logger.info("%s", line)
+    try:
+        app.state.store = SQLiteStore(settings.database_path)
+    except StoreUnavailableError as exc:
+        logger.error("startup failed: %s", exc)
+        raise
     yield
+
+
+def _cors_kwargs(settings: Settings) -> dict:
+    kwargs: dict = {"allow_origins": settings.cors_origin_list, "allow_methods": ["*"], "allow_headers": ["*"]}
+    if settings.is_development:
+        # Next.js moves to 3001, 3002, ... when 3000 is taken; accept any local port in dev.
+        kwargs["allow_origin_regex"] = r"^https?://(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$"
+    return kwargs
 
 
 app = FastAPI(
     title="Incident Commander",
-    version="0.2.0",
+    version=API_VERSION,
     description="AI-powered incident analysis service for hackathon demos.",
     lifespan=lifespan,
 )
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=get_settings().cors_origin_list,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+app.add_middleware(CORSMiddleware, **_cors_kwargs(get_settings()))
 
 
 # ---------------------------------------------------------------- dependencies
@@ -188,7 +204,10 @@ async def health(
         database_ok = False
     return HealthResponse(
         ok=database_ok,
+        version=API_VERSION,
         environment=settings.app_env,
+        analyzer=settings.analyzer,
+        analyzer_reason=settings.gradient_disabled_reason,
         gradient_enabled=settings.gradient_enabled,
         slack_enabled=settings.slack_enabled,
         ingest_auth_enabled=settings.ingest_auth_enabled,
@@ -196,6 +215,8 @@ async def health(
         database_ok=database_ok,
         queue_depth=counts.get("analysis_pending", 0),
         in_progress=counts.get("analysis_in_progress", 0),
+        events_total=sum(counts.values()),
+        config_warnings=settings.config_warnings(),
     )
 
 
@@ -259,6 +280,72 @@ async def simulate(client: GradientClient = Depends(get_client)) -> SimulationRe
         scenario="Billing API outage after elevated database latency",
         analysis=analysis,
     )
+
+
+def load_demo_dataset() -> list[dict]:
+    """Demo events from data/dummy-events.json, with a small built-in set as fallback."""
+    if DEMO_DATASET.exists():
+        try:
+            items = json.loads(DEMO_DATASET.read_text(encoding="utf-8"))
+            return [item for item in items if isinstance(item, dict) and "payload" in item]
+        except (OSError, json.JSONDecodeError) as exc:
+            logger.warning("could not read %s (%s); using built-in demo events", DEMO_DATASET, exc)
+    base = utc_now()
+    return [
+        {
+            "mode": "wait",
+            "payload": {
+                "service": service,
+                "environment": environment,
+                "timestamp": (base - timedelta(minutes=offset)).isoformat(),
+                "logs": logs,
+            },
+        }
+        for offset, service, environment, logs in (
+            (3, "billing-api", "prod", ["ERROR db connection timeout", "ERROR 500 /checkout", "WARN retry budget exhausted"]),
+            (9, "search-api", "prod", ["ERROR upstream 503 from ranker", "WARN p99 latency 4.2s"]),
+            (21, "auth-service", "staging", ["ERROR token signing key rotation failed", "WARN falling back to previous key"]),
+            (40, "notifications", "prod", ["WARN queue depth 12000", "ERROR SMTP connection refused"]),
+        )
+    ]
+
+
+@app.post("/demo/seed", response_model=DemoSeedResponse, dependencies=[Depends(require_api_key)])
+async def seed_demo_data(
+    limit: int = Query(default=12, ge=1, le=200),
+    inline: bool = Query(default=True, description="analyze every event now; false queues all but the first four for the worker"),
+    store: SQLiteStore = Depends(get_store),
+    client: GradientClient = Depends(get_client),
+    notifier: SlackNotifier = Depends(get_notifier),
+) -> DemoSeedResponse:
+    """Ingest demo events so a fresh install has something to look at.
+
+    By default every event is analyzed inline, so no worker is needed to see
+    results. Timestamps are shifted so the events land in the last 24 hours.
+    """
+    dataset = load_demo_dataset()[:limit]
+    if not dataset:
+        raise HTTPException(status_code=503, detail="no demo dataset available")
+    now = utc_now()
+    analyzed = queued = ignored = 0
+    for index, item in enumerate(dataset):
+        payload = dict(item["payload"])
+        payload["timestamp"] = (now - timedelta(minutes=5 + index * 37)).isoformat()
+        request = LogIngestRequest.model_validate(payload)
+        response = await ingest_one(
+            request,
+            store=store,
+            client=client,
+            notifier=notifier,
+            wait_for_analysis=inline or index < 4,
+        )
+        if response.status == "ignored":
+            ignored += 1
+        elif response.status == "analysis_pending":
+            queued += 1
+        else:
+            analyzed += 1
+    return DemoSeedResponse(ingested=len(dataset), analyzed=analyzed, queued=queued, ignored=ignored)
 
 
 # -------------------------------------------------------------------- events

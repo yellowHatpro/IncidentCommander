@@ -9,3 +9,4 @@ frontend/tsconfig.tsbuildinfo
 data/*.db
 data/*.log
 plan/
+data/api-url

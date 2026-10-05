@@ -18,5 +18,5 @@ COPY .env.example ./.
 
 RUN mkdir -p /app/data
 
-CMD ["uv", "run", "uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uv", "run", "python", "-m", "api", "--host", "0.0.0.0", "--port", "8000", "--strict-port"]
 

@@ -2,11 +2,13 @@ services:
   api:
     build:
       context: .
-    command: uv run uvicorn api.main:app --host 0.0.0.0 --port 8000
+    command: uv run python -m api --host 0.0.0.0 --port 8000 --strict-port
     env_file:
-      - .env
+      - path: .env
+        required: false
     ports:
-      - "8000:8000"
+      # Change the host side with API_PORT=8001 when 8000 is taken on your machine.
+      - "${API_PORT:-8000}:8000"
     volumes:
       - incident_data:/app/data
     restart: unless-stopped
@@ -14,9 +16,10 @@ services:
   worker:
     build:
       context: .
-    command: uv run python -m worker.main
+    command: uv run python -m worker
     env_file:
-      - .env
+      - path: .env
+        required: false
     volumes:
       - incident_data:/app/data
     restart: unless-stopped

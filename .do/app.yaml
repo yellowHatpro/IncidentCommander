@@ -9,7 +9,7 @@ services:
     http_port: 8080
     instance_count: 1
     instance_size_slug: basic-xxs
-    run_command: uvicorn api.main:app --host 0.0.0.0 --port ${PORT}
+    run_command: python -m api --host 0.0.0.0 --strict-port
     source_dir: /
     envs:
       - key: APP_ENV
@@ -45,7 +45,7 @@ workers:
       repo: your-github-user/incident-commander
     instance_count: 1
     instance_size_slug: basic-xxs
-    run_command: python -m worker.main
+    run_command: python -m worker
     source_dir: /
     envs:
       - key: APP_ENV
