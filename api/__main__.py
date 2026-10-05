@@ -7,6 +7,7 @@ The chosen URL is printed and written to data/api-url so the Next.js frontend
 import argparse
 import logging
 import os
+import signal
 
 import uvicorn
 
@@ -32,6 +33,13 @@ def clear_api_url() -> None:
         API_URL_FILE.unlink(missing_ok=True)
     except OSError:
         pass
+
+
+def _exit_on_signal(signum: int, _frame: object) -> None:
+    # uvicorn re-raises the signal it caught once shutdown completes, so the
+    # `finally` in main() would not run. Clear the discovery file here instead.
+    clear_api_url()
+    raise SystemExit(0)
 
 
 def main(argv: list[str] | None = None) -> None:
@@ -62,10 +70,20 @@ def main(argv: list[str] | None = None) -> None:
     logger.info("dashboard: %s/dashboard", url)
 
     write_api_url(url)
+    signal.signal(signal.SIGTERM, _exit_on_signal)
+    signal.signal(signal.SIGINT, _exit_on_signal)
     # The app lifespan prints the same summary; skip it when this runner already did.
     os.environ["INCIDENT_COMMANDER_SUMMARY_PRINTED"] = "1"
     try:
-        uvicorn.run("api.main:app", host=host, port=port, reload=args.reload, log_level="info")
+        uvicorn.run(
+            "api.main:app",
+            host=host,
+            port=port,
+            reload=args.reload,
+            # Only our own code; node_modules and data/ would trigger restarts otherwise.
+            reload_dirs=[str(PROJECT_ROOT / "api"), str(PROJECT_ROOT / "worker")] if args.reload else None,
+            log_level="info",
+        )
     finally:
         clear_api_url()
 
