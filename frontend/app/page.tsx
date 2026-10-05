@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { ArrowRight, ShieldAlert, Sparkles, Waves } from "lucide-react";
 import { AutoRefresh } from "../components/auto-refresh";
+import { ConfigWarnings } from "../components/config-warnings";
 import { DashboardShell } from "../components/dashboard-shell";
 import { EmptyState } from "../components/empty-state";
 import { ErrorPanel } from "../components/error-panel";
+import { GettingStarted } from "../components/getting-started";
+import { SetupPanel } from "../components/setup-panel";
 import { EventList } from "../components/event-list";
 import { FilterBar } from "../components/filter-bar";
 import { IncidentList } from "../components/incident-list";
 import { IncidentTrend } from "../components/incident-trend";
 import { MetricCard } from "../components/metric-card";
 import { OverviewCharts } from "../components/overview-charts";
-import { fetchDashboardData } from "../lib/api";
+import { describeApiBase, fetchDashboardData } from "../lib/api";
 import { formatRelativeTime, formatTimestamp } from "../lib/format";
 import { buildPressureSeries, buildSeverityChart } from "../lib/log-insights";
 import type { IncidentFilters, IncidentStatus, Severity } from "../lib/types";
@@ -47,15 +50,22 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
     return (
       <DashboardShell
         eyebrow="Next.js Operations Console"
-        title="Incident visibility without the plain HTML dashboard."
-        description="This frontend reads the FastAPI backend directly and turns the stored incidents and event stream into a working operator console."
+        title={result.unreachable ? "Let's connect this console to the API." : "Incident visibility without the plain HTML dashboard."}
+        description={
+          result.unreachable
+            ? "The frontend is running. It needs the FastAPI backend to answer before it can show incidents."
+            : "This frontend reads the FastAPI backend directly and turns the stored incidents and event stream into a working operator console."
+        }
       >
-        <ErrorPanel message={result.error} />
+        {result.unreachable ? <SetupPanel api={result.api} error={result.error} /> : <ErrorPanel message={result.error} />}
       </DashboardShell>
     );
   }
 
-  const { health, incidents, incidentsTotal, events, metrics } = result.data;
+  const { health, incidents, incidentsTotal, events, eventsTotal, metrics } = result.data;
+  const filtersActive = Object.values(filters).some(Boolean);
+  const firstRun = health.events_total === 0 && eventsTotal === 0 && !filtersActive;
+  const databaseName = health.database_path.split(/[\\/]/).pop() ?? health.database_path;
   const openSevere = incidents.filter(
     (incident) => incident.status !== "resolved" && ["P1", "P2"].includes(incident.analysis.severity),
   );
@@ -74,6 +84,10 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
       statusLabel={health.gradient_enabled ? "Gradient live" : "Fallback analyzer"}
       toolbar={<AutoRefresh intervalSec={30} />}
     >
+      <ConfigWarnings warnings={health.config_warnings} />
+
+      {firstRun ? <GettingStarted apiUrl={describeApiBase().url} authRequired={health.ingest_auth_enabled} /> : null}
+
       <section className="grid gap-6 xl:grid-cols-[1.2fr_0.8fr]">
         <Card className="overflow-hidden">
           <CardHeader>
@@ -109,15 +123,15 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             </div>
 
             <div className="grid gap-2 text-sm text-muted-foreground">
-              <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-2" title={health.analyzer_reason ?? undefined}>
                 <Sparkles className="h-4 w-4 text-cyan-300" />
-                Analyzer: {health.gradient_enabled ? "Gradient" : "Fallback"}
+                Analyzer: {health.gradient_enabled ? "Gradient" : "Fallback (built-in)"}
                 {health.slack_enabled ? " · Slack on" : ""}
                 {health.ingest_auth_enabled ? " · API key required" : ""}
               </span>
-              <span className="inline-flex items-center gap-2">
+              <span className="inline-flex items-center gap-2" title={health.database_path}>
                 <Waves className="h-4 w-4 text-cyan-300" />
-                Database: {health.database_path}
+                Database: {databaseName} · API v{health.version}
               </span>
             </div>
           </CardContent>
@@ -145,7 +159,7 @@ export default async function HomePage({ searchParams }: { searchParams: Promise
             <IncidentList incidents={incidents} total={incidentsTotal} />
           ) : (
             <EmptyState
-              title={Object.values(filters).some(Boolean) ? "No incidents match these filters" : "No incident records yet"}
+              title={filtersActive ? "No incidents match these filters" : "No incident records yet"}
               description="Send warning or error logs to `/ingest/logs` (or an Alertmanager webhook to `/ingest/alertmanager`) and the analyzed incident timeline will appear here."
             />
           )}

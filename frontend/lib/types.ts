@@ -82,7 +82,10 @@ export type EventDetail = {
 
 export type HealthResponse = {
   ok: boolean;
+  version: string;
   environment: string;
+  analyzer: "gradient" | "fallback";
+  analyzer_reason: string | null;
   gradient_enabled: boolean;
   slack_enabled: boolean;
   ingest_auth_enabled: boolean;
@@ -90,6 +93,15 @@ export type HealthResponse = {
   database_ok: boolean;
   queue_depth: number;
   in_progress: number;
+  events_total: number;
+  config_warnings: string[];
+};
+
+export type DemoSeedResult = {
+  ingested: number;
+  analyzed: number;
+  queued: number;
+  ignored: number;
 };
 
 export type Paginated<K extends string, T> = { [key in K]: T[] } & {

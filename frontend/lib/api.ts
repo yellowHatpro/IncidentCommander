@@ -1,4 +1,7 @@
+import { existsSync, readFileSync } from "node:fs";
+import path from "node:path";
 import type {
+  DemoSeedResult,
   EventDetail,
   EventSummary,
   HealthResponse,
@@ -10,7 +13,15 @@ import type {
   StoredIncident,
 } from "./types";
 
-type ApiResult<T> = { ok: true; data: T } | { ok: false; error: string };
+export type ApiFailure = {
+  ok: false;
+  error: string;
+  /** True when the backend did not answer at all (not running, wrong port, refused). */
+  unreachable: boolean;
+  api: ApiBase;
+};
+
+type ApiResult<T> = { ok: true; data: T } | ApiFailure;
 
 export class ApiError extends Error {
   constructor(
@@ -21,12 +32,66 @@ export class ApiError extends Error {
   }
 }
 
+export class ApiUnreachableError extends Error {
+  constructor(
+    public readonly api: ApiBase,
+    cause: unknown,
+  ) {
+    super(`The API did not answer at ${api.url} (${describeCause(cause)}).`);
+  }
+}
+
+export type ApiBase = {
+  url: string;
+  /** Where the URL came from, shown on the setup screen. */
+  source: "API_BASE_URL" | "NEXT_PUBLIC_API_BASE_URL" | "data/api-url" | "default";
+};
+
+const DEFAULT_API_URL = "http://127.0.0.1:8000";
+const REQUEST_TIMEOUT_MS = 10_000;
+
+function readApiUrlFile(): string | null {
+  // `python -m api` writes the port it actually bound to here (the frontend runs
+  // from frontend/ in dev and from the repo root in some deployments).
+  for (const candidate of [path.join(process.cwd(), "..", "data", "api-url"), path.join(process.cwd(), "data", "api-url")]) {
+    try {
+      if (existsSync(candidate)) {
+        const value = readFileSync(candidate, "utf8").trim();
+        if (/^https?:\/\//.test(value)) return value;
+      }
+    } catch {
+      // unreadable file: fall through to the default
+    }
+  }
+  return null;
+}
+
+function stripTrailingSlash(url: string) {
+  return url.replace(/\/+$/, "");
+}
+
+export function describeApiBase(): ApiBase {
+  if (process.env.API_BASE_URL) return { url: stripTrailingSlash(process.env.API_BASE_URL), source: "API_BASE_URL" };
+  if (process.env.NEXT_PUBLIC_API_BASE_URL) {
+    return { url: stripTrailingSlash(process.env.NEXT_PUBLIC_API_BASE_URL), source: "NEXT_PUBLIC_API_BASE_URL" };
+  }
+  const discovered = readApiUrlFile();
+  if (discovered) return { url: stripTrailingSlash(discovered), source: "data/api-url" };
+  return { url: DEFAULT_API_URL, source: "default" };
+}
+
 export function getApiBaseUrl() {
-  return (
-    process.env.API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    "http://127.0.0.1:8000"
-  );
+  return describeApiBase().url;
+}
+
+function describeCause(cause: unknown): string {
+  if (cause instanceof Error) {
+    const inner = (cause as Error & { cause?: unknown }).cause;
+    if (inner instanceof Error && inner.message) return inner.message;
+    if (cause.name === "TimeoutError") return `no response within ${REQUEST_TIMEOUT_MS / 1000}s`;
+    return cause.message;
+  }
+  return String(cause);
 }
 
 function writeHeaders(): Record<string, string> {
@@ -36,15 +101,22 @@ function writeHeaders(): Record<string, string> {
 }
 
 async function fetchJson<T>(path: string, init?: RequestInit): Promise<T> {
-  const response = await fetch(`${getApiBaseUrl()}${path}`, {
-    cache: "no-store",
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(init?.body ? { "Content-Type": "application/json" } : {}),
-      ...(init?.headers ?? {}),
-    },
-  });
+  const api = describeApiBase();
+  let response: Response;
+  try {
+    response = await fetch(`${api.url}${path}`, {
+      cache: "no-store",
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(init?.body ? { "Content-Type": "application/json" } : {}),
+        ...(init?.headers ?? {}),
+      },
+    });
+  } catch (error) {
+    throw new ApiUnreachableError(api, error);
+  }
 
   if (!response.ok) {
     let detail = response.statusText;
@@ -73,7 +145,15 @@ async function wrap<T>(work: () => Promise<T>): Promise<ApiResult<T>> {
   try {
     return { ok: true, data: await work() };
   } catch (error) {
-    return { ok: false, error: error instanceof Error ? error.message : "Unknown API error" };
+    if (error instanceof ApiUnreachableError) {
+      return { ok: false, error: error.message, unreachable: true, api: error.api };
+    }
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : "Unknown API error",
+      unreachable: false,
+      api: describeApiBase(),
+    };
   }
 }
 
@@ -123,6 +203,13 @@ export function addIncidentNote(incidentId: string, author: string, text: string
   return fetchJson<StoredIncident>(`/incidents/${incidentId}/notes`, {
     method: "POST",
     body: JSON.stringify({ author, text }),
+    headers: writeHeaders(),
+  });
+}
+
+export function seedDemoData(limit = 12) {
+  return fetchJson<DemoSeedResult>(`/demo/seed?limit=${limit}`, {
+    method: "POST",
     headers: writeHeaders(),
   });
 }

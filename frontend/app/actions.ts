@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { addIncidentNote, updateIncidentStatus } from "../lib/api";
+import { addIncidentNote, seedDemoData, updateIncidentStatus } from "../lib/api";
 import type { IncidentStatus } from "../lib/types";
 
 export type ActionResult = { ok: true } | { ok: false; error: string };
@@ -44,5 +44,15 @@ export async function addIncidentNoteAction(
     return toActionResult(error);
   }
   revalidatePath(`/incidents/${incidentId}`);
+  return { ok: true };
+}
+
+export async function seedDemoDataAction(): Promise<ActionResult> {
+  try {
+    await seedDemoData(12);
+  } catch (error) {
+    return toActionResult(error);
+  }
+  revalidatePath("/");
   return { ok: true };
 }

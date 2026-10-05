@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, FileDown, Link2, Megaphone, Siren, Sparkles } from "lucide-react";
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { ErrorPanel } from "../../../components/error-panel";
+import { SetupPanel } from "../../../components/setup-panel";
 import { IncidentActions } from "../../../components/incident-actions";
 import { IncidentNotes } from "../../../components/incident-notes";
 import { StatusBadge } from "../../../components/status-badge";
@@ -24,9 +25,13 @@ export default async function IncidentDetailPage({
       <DashboardShell
         eyebrow="Incident Dossier"
         title="Unable to load incident detail."
-        description="The incident API call failed. Verify that the backend is running and the incident ID exists."
+        description={
+          result.unreachable
+            ? "The backend did not answer. Start the API, then retry."
+            : "The incident API call failed. Verify that the backend is running and the incident ID exists."
+        }
       >
-        <ErrorPanel message={result.error} />
+        {result.unreachable ? <SetupPanel api={result.api} error={result.error} /> : <ErrorPanel message={result.error} />}
       </DashboardShell>
     );
   }

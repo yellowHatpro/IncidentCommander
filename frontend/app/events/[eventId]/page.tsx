@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowRight, DatabaseZap, Radar } from "lucide-react";
 import { DashboardShell } from "../../../components/dashboard-shell";
 import { ErrorPanel } from "../../../components/error-panel";
+import { SetupPanel } from "../../../components/setup-panel";
 import { LogStreamPanel } from "../../../components/log-stream-panel";
 import { StatusBadge } from "../../../components/status-badge";
 import { Badge } from "../../../components/ui/badge";
@@ -25,9 +26,13 @@ export default async function EventDetailPage({
       <DashboardShell
         eyebrow="Event Trace"
         title="Unable to load event detail."
-        description="The event API call failed. Verify that the backend is running and the event ID exists."
+        description={
+          result.unreachable
+            ? "The backend did not answer. Start the API, then retry."
+            : "The event API call failed. Verify that the backend is running and the event ID exists."
+        }
       >
-        <ErrorPanel message={result.error} />
+        {result.unreachable ? <SetupPanel api={result.api} error={result.error} /> : <ErrorPanel message={result.error} />}
       </DashboardShell>
     );
   }
