@@ -34,12 +34,26 @@ _INCIDENT_COLUMNS = (
 )
 
 
+class StoreUnavailableError(RuntimeError):
+    """The SQLite file cannot be created or opened. The message says what to fix."""
+
+
 class SQLiteStore:
     def __init__(self, database_path: str) -> None:
         self.database_path = Path(database_path)
-        if self.database_path.parent != Path("."):
-            self.database_path.parent.mkdir(parents=True, exist_ok=True)
-        self._initialize()
+        try:
+            if self.database_path.parent != Path("."):
+                self.database_path.parent.mkdir(parents=True, exist_ok=True)
+            if self.database_path.is_dir():
+                raise StoreUnavailableError(
+                    f"DATABASE_PATH={self.database_path} is a directory; point it at a file such as data/incident_commander.db"
+                )
+            self._initialize()
+        except (OSError, sqlite3.Error) as exc:
+            raise StoreUnavailableError(
+                f"cannot open the SQLite database at {self.database_path} ({exc}). "
+                "Check DATABASE_PATH in .env and that the directory is writable."
+            ) from exc
 
     def _connect(self) -> closing[sqlite3.Connection]:
         # Each call opens a short-lived connection. `closing` releases the file

@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import sqlite3
 
 from api.gradient_client import GradientClient
 from api.incident_service import process_stored_event
 from api.notifier import SlackNotifier
+from api.runtime import configure_logging, fail, log_settings_summary
 from api.settings import get_settings
-from api.store import SQLiteStore
+from api.store import SQLiteStore, StoreUnavailableError
 
 
 logger = logging.getLogger("incident_commander.worker")
@@ -27,21 +29,37 @@ async def process_one_pending_event(store: SQLiteStore | None = None) -> bool:
 
 async def worker_loop() -> None:
     settings = get_settings()
-    logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
-    store = SQLiteStore(settings.database_path)
-    logger.info("worker started, polling %s every %.1fs", settings.database_path, settings.worker_poll_interval_sec)
+    configure_logging()
+    log_settings_summary(settings, "worker")
+    try:
+        store = SQLiteStore(settings.database_path)
+    except StoreUnavailableError as exc:
+        fail(str(exc))
+        return
+    logger.info("worker started, polling every %.1fs", settings.worker_poll_interval_sec)
     while True:
-        processed = await process_one_pending_event(store)
+        try:
+            processed = await process_one_pending_event(store)
+        except sqlite3.OperationalError as exc:
+            # Typically "database is locked" while the API writes; retry next tick.
+            logger.warning("database busy (%s); retrying in %.1fs", exc, settings.worker_poll_interval_sec)
+            processed = False
         if not processed:
             # Idle: release claims left behind by a worker that died mid-analysis.
-            reclaimed = store.reclaim_stale_in_progress(settings.worker_stale_after_sec)
+            try:
+                reclaimed = store.reclaim_stale_in_progress(settings.worker_stale_after_sec)
+            except sqlite3.OperationalError:
+                reclaimed = 0
             if reclaimed:
                 logger.warning("reclaimed %d stale in-progress event(s)", reclaimed)
             await asyncio.sleep(settings.worker_poll_interval_sec)
 
 
 def main() -> None:
-    asyncio.run(worker_loop())
+    try:
+        asyncio.run(worker_loop())
+    except KeyboardInterrupt:
+        logger.info("worker stopped")
 
 
 if __name__ == "__main__":

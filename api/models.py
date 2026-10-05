@@ -110,7 +110,11 @@ class IncidentNoteCreate(BaseModel):
 
 class HealthResponse(BaseModel):
     ok: bool = True
+    version: str = "0.0.0"
     environment: str
+    # "gradient" or "fallback"; `analyzer_reason` explains a fallback caused by configuration.
+    analyzer: str = "fallback"
+    analyzer_reason: str | None = None
     gradient_enabled: bool
     slack_enabled: bool = False
     ingest_auth_enabled: bool = False
@@ -118,6 +122,16 @@ class HealthResponse(BaseModel):
     database_ok: bool = True
     queue_depth: int = 0
     in_progress: int = 0
+    events_total: int = 0
+    # Configuration that is set but unusable (placeholders, bad URLs). Empty when clean.
+    config_warnings: list[str] = Field(default_factory=list)
+
+
+class DemoSeedResponse(BaseModel):
+    ingested: int
+    analyzed: int
+    queued: int
+    ignored: int
 
 
 class IngestResponse(BaseModel):
